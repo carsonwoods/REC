@@ -1,9 +1,8 @@
 #!/bin/python3
 
 import argparse
-import subprocess
 import os
-
+import subprocess
 
 def parse_arguments():
     """
@@ -60,8 +59,10 @@ if __name__ == '__main__':
 
     arguments = parse_arguments()
 
-    launch_command = '/bin/bash'
+    launch_command = None
 
+    # Parses arguments to select launch mechanism
+    # for script or command
     if arguments.slurm:
         launch_command = 'sbatch'
     elif arguments.sge:
@@ -73,4 +74,12 @@ if __name__ == '__main__':
     else:
         launch_command = '/bin/bash'
 
-    print(launch_command)
+    if launch_command != '':
+        script= [launch_command] + arguments.script
+    else:
+        script = arguments.script
+
+    script_result = subprocess.run(script, capture_output=True)
+
+    print(script_result.stdout.decode('utf-8'))
+
