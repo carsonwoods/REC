@@ -146,6 +146,7 @@ if __name__ == '__main__':
 
     results['script_output'] = script_result.stdout.decode('utf-8')
 
-    print(json.dumps(results, indent=4))
+    with open(results['name'], 'w') as f:
+        json.dump(results, f, indent=4)
 
 
