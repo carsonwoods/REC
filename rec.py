@@ -3,6 +3,9 @@
 import argparse
 import os
 import subprocess
+import json
+from datetime import datetime
+from hashlib import sha256
 
 def parse_arguments():
     """
@@ -40,6 +43,10 @@ def parse_arguments():
                         help='treats script argument as a'
                              'command and launches it')
 
+    parser.add_argument('-n', '--name',
+                        action='store',
+                        help='sets job name')
+
     parser.add_argument('script',
                         nargs='*',
                         action='store',
@@ -59,27 +66,87 @@ if __name__ == '__main__':
 
     arguments = parse_arguments()
 
-    launch_command = None
+    # Store reproducibility results as json object
+    results = dict()
+
+    # Record Time Program Starts / Ends
+    start_time = datetime.now()
+    end_time = None
+
+    # Stores how job is launched
+    runtime_mode = None
+
+    # Record Results
+    if arguments.name:
+        results['name'] = arguments.name
+    else:
+        results['name'] = 'rec_out_' + start_time.strftime("%H:%M:%S")
 
     # Parses arguments to select launch mechanism
     # for script or command
     if arguments.slurm:
-        launch_command = 'sbatch'
+        runtime_mode = 'sbatch'
+        results['runtime_mode'] = dict()
+        results['runtime_mode']['name'] = 'slurm'
+        results['runtime_mode']['version'] = subprocess.run(['sinfo', '-V'],
+                                                            capture_output=True).stdout.decode('utf-8')
     elif arguments.sge:
-        launch_command = 'qsub'
+        runtime_mode = 'qsub'
+        results['runtime_mode'] = dict()
+        results['runtime_mode']['name'] = 'sge'
+        sge_version = subprocess.run(['qstat', '--help'], capture_output=True).stdout.decode('utf-8')
+        sge_version = sge_version.split('\n')[0]
+        results['runtime_mode']['version'] = sge_version
     elif arguments.shell:
-        launch_command = os.getenv('SHELL')
+        runtime_mode = os.getenv('SHELL')
+        results['runtime_mode'] = dict()
+        results['runtime_mode']['name'] = runtime_mode + '_script'
+        results['runtime_mode']['version'] = subprocess.run([runtime_mode, '--version'],
+                                                            capture_output=True).stdout.decode('utf-8')
     elif arguments.cli:
-        launch_command = ''
+        runtime_mode = ''
+        results['runtime_mode'] = dict()
+        results['runtime_mode']['name'] = 'shell_command'
+        results['runtime_mode']['version'] = ''
     else:
-        launch_command = '/bin/bash'
+        runtime_mode = '/bin/bash'
+        results['runtime_mode'] = dict()
+        results['runtime_mode']['name'] = 'bash_script'
+        bash_version = subprocess.run(['bash', '--version'], capture_output=True).stdout.decode('utf-8')
+        results['runtime_mode']['version'] = bash_version.split('\n')[0]
 
-    if launch_command != '':
-        script= [launch_command] + arguments.script
+    # Hashes Input (Script or File)
+    if arguments.cli:
+        to_encode = ""
+        for arg in arguments.script:
+            to_encode += arg
+        results['hash'] = sha256(to_encode.encode('ascii')).hexdigest()
+    else:
+        hash = sha256()
+        with open(arguments.script[0], 'rb') as f:
+            data = f.read(65536)
+            hash.update(data)
+            while data:
+                data = f.read(65536)
+                hash.update(data)
+        results['hash'] = hash.hexdigest()
+
+    # Formulate Launch Command
+    if runtime_mode != '':
+        script= [runtime_mode] + arguments.script
     else:
         script = arguments.script
 
+    # Launch Job
     script_result = subprocess.run(script, capture_output=True)
 
-    print(script_result.stdout.decode('utf-8'))
+    end_time = datetime.now()
+    results['start_time'] =  start_time.strftime("%H:%M:%S")
+    results['end_time'] =  end_time.strftime("%H:%M:%S")
+
+    results['script_output'] = script_result.stdout.decode('utf-8')
+
+    with open(results['name'], 'w') as f:
+        json.dump(results, f, indent=4)
+
 
