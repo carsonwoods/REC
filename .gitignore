@@ -2,3 +2,4 @@
 .nova
 *.out
 *.pyc
+rec_out_*
