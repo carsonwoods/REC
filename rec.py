@@ -63,7 +63,7 @@ if __name__ == '__main__':
     if arguments.name:
         results['name'] = arguments.name
     else:
-        results['name'] = 'rec_out_' + start_time.strftime("%H:%M:%S")
+        results['name'] = 'out_' + start_time.strftime("%H:%M:%S") +".rec"
 
     # Parses arguments to select launch mechanism
     # for script or command
