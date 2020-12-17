@@ -21,6 +21,12 @@ def parse_arguments():
                         version='%(prog)s 0.1',
                         help='Print version of REC')
 
+    parser.add_argument('--verbose-version',
+                        dest='verbose_version',
+                        action='store_true',
+                        help='captures full output of --version command'
+                             'rather than just the first line')
+
     parser.add_argument('-l', '--launcher',
                         action='store',
                         help='sets runtime launcher for script'
@@ -45,6 +51,26 @@ def parse_arguments():
     return arguments
 
 
+def get_version(cmd, verbose=False):
+    """
+    Captures the version of the output for an executable command
+    """
+    version = ""
+    if cmd == 'qstat':
+        # SGE requires special consideration, no verbose version
+        # possible currently.
+        v_cmd = [cmd, '--help']
+        version = subprocess.run(v_cmd, capture_output=True)
+        return version.stdout.decode('utf-8').split('\n')[0]
+    else:
+        v_cmd = [cmd, '--version']
+        version = subprocess.run(v_cmd, capture_output=True)
+        version = version.stdout.decode('utf-8')
+        if not verbose:
+            return version.split('\n')[0]
+        return version
+
+
 if __name__ == '__main__':
 
     arguments = parse_arguments()
@@ -63,7 +89,7 @@ if __name__ == '__main__':
     if arguments.name:
         results['name'] = arguments.name
     else:
-        results['name'] = 'out_' + start_time.strftime("%H:%M:%S") +".rec"
+        results['name'] = 'out_' + start_time.strftime("%H:%M:%S") + ".rec"
 
     # Parses arguments to select launch mechanism
     # for script or command
@@ -71,22 +97,20 @@ if __name__ == '__main__':
         runtime_mode = 'sbatch'
         results['runtime_mode'] = dict()
         results['runtime_mode']['name'] = 'slurm'
-        version = subprocess.run(['sinfo', '-V'], capture_output=True)
-        results['runtime_mode']['version'] = version.stdout.decode('utf-8')
+        version = get_version('slurm', arguments.verbose_version)
+        results['runtime_mode']['version'] = version
     elif arguments.launcher == 'sge':
         runtime_mode = 'qsub'
         results['runtime_mode'] = dict()
         results['runtime_mode']['name'] = 'sge'
-        sge_version = subprocess.run(['qstat', '--help'], capture_output=True)
-        sge_version = sge_version.stdout.decode('utf-8').split('\n')[0]
-        results['runtime_mode']['version'] = sge_version
+        results['runtime_mode']['version'] = get_version('sge')
     elif arguments.launcher == 'shell':
         runtime_mode = os.getenv('SHELL')
         results['runtime_mode'] = dict()
         results['runtime_mode']['name'] = runtime_mode + '_script'
-        version = subprocess.run([runtime_mode, '--version'],
-                                 capture_output=True)
-        results['runtime_mode']['version'] = version.stdout.decode('utf-8')
+        results['runtime_mode']['version'] = get_version(runtime_mode,
+                                                         arguments.
+                                                         verbose_version)
     elif arguments.launcher == 'cli':
         runtime_mode = ''
         results['runtime_mode'] = dict()
@@ -96,17 +120,30 @@ if __name__ == '__main__':
         runtime_mode = '/bin/bash'
         results['runtime_mode'] = dict()
         results['runtime_mode']['name'] = 'bash_script'
-        version = subprocess.run(['bash', '--version'], capture_output=True)
-        version = version.stdout.decode('utf-8')
-        results['runtime_mode']['version'] = version.split('\n')[0]
+        results['runtime_mode']['version'] = get_version('/bin/bash',
+                                                         arguments.
+                                                         verbose_version)
+
+    # Store information on executables
+    results['executables'] = dict()
 
     # Hashes Input (Script or File)
     if arguments.launcher == 'cli':
+
+        # Gets hash of CLI input to REC
         to_encode = ""
         for arg in arguments.script:
             to_encode += arg
         results['hash'] = sha256(to_encode.encode('ascii')).hexdigest()
+
+        # Gets version of first executable in command
+        cmd = arguments.script[0]
+        if cmd not in results['executables'].keys():
+            results['executables'][cmd] = dict()
+        version = get_version(cmd, arguments.verbose_version)
+        results['executables'][cmd]['version'] = version
     else:
+        # Gets hash of entire file
         hash = sha256()
         with open(arguments.script[0], 'rb') as f:
             data = f.read(65536)
@@ -116,16 +153,15 @@ if __name__ == '__main__':
                 hash.update(data)
         results['hash'] = hash.hexdigest()
 
-        results['executables'] = dict()
+        # Captures information on each executable in script
         with open(arguments.script[0], 'r') as f:
-            line = f.readline().strip().split()
-            if len(line[0]) > 0:
-                if line[0] not in results['executables'].keys():
-                    v_cmd = [line[0], '--version']
-                    version_result = subprocess.run(v_cmd, capture_output=True)
-                    version = version_result.stdout.decode('utf-8')
-                    results['executables'][line[0]] = dict()
-                    results['executables'][line[0]]['version'] = version
+            for line in f:
+                cmd = line.split()[0]
+                if len(cmd) > 0:
+                    if cmd not in results['executables'].keys():
+                        results['executables'][cmd] = dict()
+                    version = get_version(cmd, arguments.verbose_version)
+                results['executables'][cmd]['version'] = version
 
     # Formulate Launch Command
     if runtime_mode != '':
