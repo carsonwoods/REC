@@ -7,6 +7,7 @@ import json
 from datetime import datetime
 from hashlib import sha256
 
+
 def parse_arguments():
     """
     Parse the arguments given on the command line.
@@ -22,8 +23,8 @@ def parse_arguments():
 
     parser.add_argument('-l', '--launcher',
                         action='store',
-                        help='sets runtime launcher for script [slurm, sge, bash'
-                             ', shell, cli]')
+                        help='sets runtime launcher for script'
+                             ' [slurm, sge, bash, shell, cli]')
 
     parser.add_argument('-n', '--name',
                         action='store',
@@ -62,7 +63,7 @@ if __name__ == '__main__':
     if arguments.name:
         results['name'] = arguments.name
     else:
-        results['name'] = 'rec_out_' + start_time.strftime("%H:%M:%S")
+        results['name'] = 'out_' + start_time.strftime("%H:%M:%S") +".rec"
 
     # Parses arguments to select launch mechanism
     # for script or command
@@ -70,21 +71,22 @@ if __name__ == '__main__':
         runtime_mode = 'sbatch'
         results['runtime_mode'] = dict()
         results['runtime_mode']['name'] = 'slurm'
-        results['runtime_mode']['version'] = subprocess.run(['sinfo', '-V'],
-                                                            capture_output=True).stdout.decode('utf-8')
+        version = subprocess.run(['sinfo', '-V'], capture_output=True)
+        results['runtime_mode']['version'] = version.stdout.decode('utf-8')
     elif arguments.launcher == 'sge':
         runtime_mode = 'qsub'
         results['runtime_mode'] = dict()
         results['runtime_mode']['name'] = 'sge'
-        sge_version = subprocess.run(['qstat', '--help'], capture_output=True).stdout.decode('utf-8')
-        sge_version = sge_version.split('\n')[0]
+        sge_version = subprocess.run(['qstat', '--help'], capture_output=True)
+        sge_version = sge_version.stdout.decode('utf-8').split('\n')[0]
         results['runtime_mode']['version'] = sge_version
     elif arguments.launcher == 'shell':
         runtime_mode = os.getenv('SHELL')
         results['runtime_mode'] = dict()
         results['runtime_mode']['name'] = runtime_mode + '_script'
-        results['runtime_mode']['version'] = subprocess.run([runtime_mode, '--version'],
-                                                            capture_output=True).stdout.decode('utf-8')
+        version = subprocess.run([runtime_mode, '--version'],
+                                 capture_output=True)
+        results['runtime_mode']['version'] = version.stdout.decode('utf-8')
     elif arguments.launcher == 'cli':
         runtime_mode = ''
         results['runtime_mode'] = dict()
@@ -94,8 +96,9 @@ if __name__ == '__main__':
         runtime_mode = '/bin/bash'
         results['runtime_mode'] = dict()
         results['runtime_mode']['name'] = 'bash_script'
-        bash_version = subprocess.run(['bash', '--version'], capture_output=True).stdout.decode('utf-8')
-        results['runtime_mode']['version'] = bash_version.split('\n')[0]
+        version = subprocess.run(['bash', '--version'], capture_output=True)
+        version = version.stdout.decode('utf-8')
+        results['runtime_mode']['version'] = version.split('\n')[0]
 
     # Hashes Input (Script or File)
     if arguments.launcher == 'cli':
@@ -113,9 +116,20 @@ if __name__ == '__main__':
                 hash.update(data)
         results['hash'] = hash.hexdigest()
 
+        results['executables'] = dict()
+        with open(arguments.script[0], 'r') as f:
+            line = f.readline().strip().split()
+            if len(line[0]) > 0:
+                if line[0] not in results['executables'].keys():
+                    v_cmd = [line[0], '--version']
+                    version_result = subprocess.run(v_cmd, capture_output=True)
+                    version = version_result.stdout.decode('utf-8')
+                    results['executables'][line[0]] = dict()
+                    results['executables'][line[0]]['version'] = version
+
     # Formulate Launch Command
     if runtime_mode != '':
-        script= [runtime_mode] + arguments.script
+        script = [runtime_mode] + arguments.script
     else:
         script = arguments.script
 
@@ -123,12 +137,10 @@ if __name__ == '__main__':
     script_result = subprocess.run(script, capture_output=True)
 
     end_time = datetime.now()
-    results['start_time'] =  start_time.strftime("%H:%M:%S")
-    results['end_time'] =  end_time.strftime("%H:%M:%S")
+    results['start_time'] = start_time.strftime("%H:%M:%S")
+    results['end_time'] = end_time.strftime("%H:%M:%S")
 
     results['script_output'] = script_result.stdout.decode('utf-8')
 
     with open(results['name'], 'w') as f:
         json.dump(results, f, indent=4)
-
-
