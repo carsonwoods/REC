@@ -21,6 +21,12 @@ def parse_arguments():
                         version='%(prog)s 0.1',
                         help='Print version of REC')
 
+    parser.add_argument('--verbose-version',
+                        dest='verbose_version',
+                        action='store_true',
+                        help='captures full output of --version command'
+                             'rather than just the first line')
+
     parser.add_argument('-l', '--launcher',
                         action='store',
                         help='sets runtime launcher for script'
@@ -116,16 +122,23 @@ if __name__ == '__main__':
                 hash.update(data)
         results['hash'] = hash.hexdigest()
 
+        # Captures information on each executable in script
         results['executables'] = dict()
         with open(arguments.script[0], 'r') as f:
-            line = f.readline().strip().split()
-            if len(line[0]) > 0:
-                if line[0] not in results['executables'].keys():
-                    v_cmd = [line[0], '--version']
-                    version_result = subprocess.run(v_cmd, capture_output=True)
-                    version = version_result.stdout.decode('utf-8')
-                    results['executables'][line[0]] = dict()
-                    results['executables'][line[0]]['version'] = version
+            for line in f:
+                line = line.strip().split()
+                print(line)
+                if len(line[0]) > 0:
+                    if line[0] not in results['executables'].keys():
+                        results['executables'][line[0]] = dict()
+
+                        v_cmd = [line[0], '--version']
+                        version_result = subprocess.run(v_cmd, capture_output=True)
+                        version = version_result.stdout.decode('utf-8')
+                        if not arguments.verbose_version:
+                            results['executables'][line[0]]['version'] = version.split('\n')[0]
+                        else:
+                            results['executables'][line[0]]['version'] = version
 
     # Formulate Launch Command
     if runtime_mode != '':
