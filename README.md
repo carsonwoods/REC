@@ -2,14 +2,14 @@
 
 This project aims to create a lightweight wrapper around scripts/commands in order to capture details about the program being run for later reproducibility.
 
-# Supported Runtime Options
+## Supported Runtime Options
 
 - CLI
 - Shell (bash, zsh, etc)
 - Slurm
 - SGE
 
-# Getting Started
+## Getting Started
 
 To run REC, issue the following command:
 
