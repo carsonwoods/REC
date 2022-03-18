@@ -2,7 +2,9 @@
 """
 REC - Runtime Environment Capture
 Maintained by Carson Woods
+Copyright 2020-2022
 """
+
 
 import argparse
 import os
@@ -11,6 +13,8 @@ import json
 import sys
 from datetime import datetime
 from hashlib import sha256
+
+from rec.lib.launcher import Launcher
 
 
 def parse_arguments():
@@ -95,42 +99,14 @@ def main():
 
     # Record Results
     if arguments.name:
-        results['name'] = arguments.name + ".json"
+        results['name'] = arguments.name + ".out"
     else:
-        results['name'] = 'out_' + start_time.strftime("%H-%M-%S") + ".json"
+        results['name'] = 'rec-' + start_time.strftime("%H-%M-%S") + ".out"
 
-    # Parses arguments to select launch mechanism
-    # for script or command
-    if arguments.launcher == 'slurm':
-        runtime_mode = 'sbatch'
-        results['runtime_mode'] = {}
-        results['runtime_mode']['name'] = 'slurm'
-        version = get_version('slurm', arguments.verbose_version)
-        results['runtime_mode']['version'] = version
-    elif arguments.launcher == 'sge':
-        runtime_mode = 'qsub'
-        results['runtime_mode'] = {}
-        results['runtime_mode']['name'] = 'sge'
-        results['runtime_mode']['version'] = get_version('sge')
-    elif arguments.launcher == 'shell':
-        runtime_mode = os.getenv('SHELL')
-        results['runtime_mode'] = {}
-        results['runtime_mode']['name'] = runtime_mode + '_script'
-        results['runtime_mode']['version'] = get_version(runtime_mode,
-                                                         arguments.
-                                                         verbose_version)
-    elif arguments.launcher == 'bash':
-        runtime_mode = '/bin/bash'
-        results['runtime_mode'] = {}
-        results['runtime_mode']['name'] = 'bash_script'
-        results['runtime_mode']['version'] = get_version('/bin/bash',
-                                                         arguments.
-                                                         verbose_version)
-    else:
-        runtime_mode = ''
-        results['runtime_mode'] = {}
-        results['runtime_mode']['name'] = 'shell_command'
-        results['runtime_mode']['version'] = ''
+    # Initialize launcher
+    launcher = Launcher(arguments.launcher)
+    results['runtime_mode'] = launcher.info()
+    runtime_mode = launcher.mode
 
     # Store information on executables
     results['executables'] = {}
@@ -162,6 +138,8 @@ def main():
         # Captures information on each executable in script
         with open(arguments.script[0], 'r', encoding="utf-8") as file:
             for line in file:
+                if "#!/" in line:
+                    continue
                 cmd = line.split()[0]
                 if len(cmd) > 0:
                     if cmd not in results['executables'].keys():
