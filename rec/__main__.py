@@ -7,7 +7,6 @@ Copyright 2020-2022
 
 
 import argparse
-import os
 import subprocess
 import json
 import sys

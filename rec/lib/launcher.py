@@ -13,7 +13,6 @@ class Launcher():
         self.version, self.verbose_version = self.version(name)
         self.mode = self.mode()
 
-
     def version(self, name):
         """
         Captures the version of launcher
@@ -33,7 +32,6 @@ class Launcher():
             version = version.stdout.decode('utf-8')
         return (version.split('\n')[0], version)
 
-
     def mode(self):
         """
         Identify proper way to launch command
@@ -49,7 +47,6 @@ class Launcher():
         else:
             runtime_mode = ''
         return runtime_mode
-
 
     def info(self, verbose=False):
         """
@@ -75,4 +72,3 @@ class Launcher():
         else:
             info['version'] = self.version
         return info
-
