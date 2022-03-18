@@ -1,7 +1,10 @@
-from setuptools import setup, find_packages
-import setuptools
+"""
+Copyright 2020-2022 Carson Woods
+"""
 
-with open("README.md", "r") as fh:
+from setuptools import setup, find_packages
+
+with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setup(

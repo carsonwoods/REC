@@ -8,34 +8,42 @@ import os
 import subprocess
 
 class Launcher():
+    """
+    Representation of the launcher command
+    as an object. Provides various interfaces
+    and functionality.
+    """
+
     def __init__(self, name):
         self.name = name
-        self.version, self.verbose_version = self.version(name)
-        self.mode = self.mode()
+        self.version, self.verbose_version = self.get_version()
+        self.mode = self.get_mode()
 
-    def version(self, name):
+    def get_version(self):
         """
         Captures the version of launcher
         """
+
         version = ""
-        if name == 'cli':
+        if self.name == 'cli':
             version = ''
-        elif name == 'sge':
+        elif self.name == 'sge':
             # SGE requires special consideration,
             # no verbose version possible currently.
             v_cmd = ['qstat', '--help']
             version = subprocess.run(v_cmd, capture_output=True, check=True)
             version = version.stdout.decode('utf-8').split('\n')[0]
         else:
-            v_cmd = [name, '--version']
+            v_cmd = [self.name, '--version']
             version = subprocess.run(v_cmd, capture_output=True, check=True)
             version = version.stdout.decode('utf-8')
         return (version.split('\n')[0], version)
 
-    def mode(self):
+    def get_mode(self):
         """
         Identify proper way to launch command
         """
+
         if self.name == 'slurm':
             runtime_mode = 'sbatch'
         elif self.name == 'sge':
@@ -54,6 +62,7 @@ class Launcher():
         information about the launcher.
         Primarily used in results file.
         """
+
         info = {}
 
         # parse name into more readable launcher name
