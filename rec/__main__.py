@@ -1,9 +1,14 @@
 #!/bin/python3
+"""
+REC - Runtime Environment Capture
+Maintained by Carson Woods
+"""
 
 import argparse
 import os
 import subprocess
 import json
+import sys
 from datetime import datetime
 from hashlib import sha256
 
@@ -18,7 +23,7 @@ def parse_arguments():
     # general flags
     parser.add_argument('-v', '--version',
                         action='version',
-                        version='%(prog)s 0.1',
+                        version='%(prog)s 0.0.1',
                         help='Print version of REC')
 
     parser.add_argument('--verbose-version',
@@ -29,6 +34,7 @@ def parse_arguments():
 
     parser.add_argument('-l', '--launcher',
                         action='store',
+                        default='cli',
                         help='sets runtime launcher for script'
                              ' [slurm, sge, bash, shell, cli]')
 
@@ -46,7 +52,7 @@ def parse_arguments():
     # check for valid input
     if not arguments.script:
         parser.print_help()
-        exit()
+        sys.exit()
 
     return arguments
 
@@ -60,23 +66,25 @@ def get_version(cmd, verbose=False):
         # SGE requires special consideration, no verbose version
         # possible currently.
         v_cmd = [cmd, '--help']
-        version = subprocess.run(v_cmd, capture_output=True)
-        return version.stdout.decode('utf-8').split('\n')[0]
+        version = subprocess.run(v_cmd, capture_output=True, check=True)
+        version = version.stdout.decode('utf-8').split('\n')[0]
     else:
         v_cmd = [cmd, '--version']
-        version = subprocess.run(v_cmd, capture_output=True)
+        version = subprocess.run(v_cmd, capture_output=True, check=True)
         version = version.stdout.decode('utf-8')
         if not verbose:
-            return version.split('\n')[0]
-        return version
+            version = version.split('\n')[0]
+    return version
 
 
-if __name__ == '__main__':
-
+def main():
+    """
+    REC Main Runtime
+    """
     arguments = parse_arguments()
 
     # Store reproducibility results as json object
-    results = dict()
+    results = {}
 
     # Record Time Program Starts / Ends
     start_time = datetime.now()
@@ -87,79 +95,77 @@ if __name__ == '__main__':
 
     # Record Results
     if arguments.name:
-        results['name'] = arguments.name
+        results['name'] = arguments.name + ".json"
     else:
-        results['name'] = 'out_' + start_time.strftime("%H:%M:%S") + ".rec"
+        results['name'] = 'out_' + start_time.strftime("%H:%M:%S") + ".json"
 
     # Parses arguments to select launch mechanism
     # for script or command
     if arguments.launcher == 'slurm':
         runtime_mode = 'sbatch'
-        results['runtime_mode'] = dict()
+        results['runtime_mode'] = {}
         results['runtime_mode']['name'] = 'slurm'
         version = get_version('slurm', arguments.verbose_version)
         results['runtime_mode']['version'] = version
     elif arguments.launcher == 'sge':
         runtime_mode = 'qsub'
-        results['runtime_mode'] = dict()
+        results['runtime_mode'] = {}
         results['runtime_mode']['name'] = 'sge'
         results['runtime_mode']['version'] = get_version('sge')
     elif arguments.launcher == 'shell':
         runtime_mode = os.getenv('SHELL')
-        results['runtime_mode'] = dict()
+        results['runtime_mode'] = {}
         results['runtime_mode']['name'] = runtime_mode + '_script'
         results['runtime_mode']['version'] = get_version(runtime_mode,
                                                          arguments.
                                                          verbose_version)
-    elif arguments.launcher == 'cli':
-        runtime_mode = ''
-        results['runtime_mode'] = dict()
-        results['runtime_mode']['name'] = 'shell_command'
-        results['runtime_mode']['version'] = ''
-    else:
+    elif arguments.launcher == 'bash':
         runtime_mode = '/bin/bash'
-        results['runtime_mode'] = dict()
+        results['runtime_mode'] = {}
         results['runtime_mode']['name'] = 'bash_script'
         results['runtime_mode']['version'] = get_version('/bin/bash',
                                                          arguments.
                                                          verbose_version)
+    else:
+        runtime_mode = ''
+        results['runtime_mode'] = {}
+        results['runtime_mode']['name'] = 'shell_command'
+        results['runtime_mode']['version'] = ''
 
     # Store information on executables
-    results['executables'] = dict()
+    results['executables'] = {}
 
     # Hashes Input (Script or File)
     if arguments.launcher == 'cli':
 
         # Gets hash of CLI input to REC
-        to_encode = ""
-        for arg in arguments.script:
-            to_encode += arg
+        to_encode = "".join(arguments.script)
         results['hash'] = sha256(to_encode.encode('ascii')).hexdigest()
 
         # Gets version of first executable in command
         cmd = arguments.script[0]
         if cmd not in results['executables'].keys():
-            results['executables'][cmd] = dict()
+            results['executables'][cmd] = {}
         version = get_version(cmd, arguments.verbose_version)
         results['executables'][cmd]['version'] = version
     else:
         # Gets hash of entire file
-        hash = sha256()
-        with open(arguments.script[0], 'rb') as f:
-            data = f.read(65536)
-            hash.update(data)
+        hash_value = sha256()
+        with open(arguments.script[0], 'rb') as file:
+            data = file.read(65536)
+            hash_value.update(data)
             while data:
-                data = f.read(65536)
-                hash.update(data)
-        results['hash'] = hash.hexdigest()
+                data = file.read(65536)
+                hash_value.update(data)
+        results['hash'] = hash_value.hexdigest()
 
         # Captures information on each executable in script
-        with open(arguments.script[0], 'r') as f:
-            for line in f:
+        with open(arguments.script[0], 'r', encoding="utf-8") as file:
+            for line in file:
                 cmd = line.split()[0]
                 if len(cmd) > 0:
                     if cmd not in results['executables'].keys():
-                        results['executables'][cmd] = dict()
+                        results['executables'][cmd] = {}
                     version = get_version(cmd, arguments.verbose_version)
                 results['executables'][cmd]['version'] = version
 
@@ -170,7 +176,9 @@ if __name__ == '__main__':
         script = arguments.script
 
     # Launch Job
-    script_result = subprocess.run(script, capture_output=True)
+    script_result = subprocess.run(script,
+                                   capture_output=True,
+                                   check=True)
 
     end_time = datetime.now()
     results['start_time'] = start_time.strftime("%H:%M:%S")
@@ -178,5 +186,9 @@ if __name__ == '__main__':
 
     results['script_output'] = script_result.stdout.decode('utf-8')
 
-    with open(results['name'], 'w') as f:
-        json.dump(results, f, indent=4)
+    with open(results['name'], 'w', encoding="utf-8") as file:
+        json.dump(results, file, indent=4)
+
+
+if __name__ == '__main__':
+    main()
