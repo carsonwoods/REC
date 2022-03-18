@@ -9,18 +9,28 @@ This project aims to create a lightweight wrapper around scripts/commands in ord
 - Slurm
 - SGE
 
-## Getting Started
+## Instaling REC
+
+REC supports Linux and MacOS, but is primarily geared towards job launchers that are predominantly available on Linux. That being said, some launchers such as Slurm and SGE are not available on MacOS. If you're using a Mac, this likely doesn't mean much to you, but it's worth mentioning.
+
+### Installing using Pip
+
+```bash
+pip install runtime-environment-capture
+```
+
+## Running REC
 
 To run REC, issue the following command:
 
 ```shell
-python -m [path/to/REC/install] [COMMAND]
+rec [COMMAND]
 ```
 
 By default, REC assumes that you will be running and capturing information about a shell command. The _simplest_ way to run REC would be as follows:
 
 ```shell
-python -m rec echo "Hello World"
+rec echo "Hello World"
 ```
 
 This will run the command `echo "Hello World"` as a shell command and will capture information about that command.
