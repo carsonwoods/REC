@@ -97,7 +97,7 @@ def main():
     if arguments.name:
         results['name'] = arguments.name + ".json"
     else:
-        results['name'] = 'out_' + start_time.strftime("%H:%M:%S") + ".json"
+        results['name'] = 'out_' + start_time.strftime("%H-%M-%S") + ".json"
 
     # Parses arguments to select launch mechanism
     # for script or command
@@ -169,13 +169,13 @@ def main():
                     version = get_version(cmd, arguments.verbose_version)
                 results['executables'][cmd]['version'] = version
 
-    # Formulate Launch Command
+    # formulate launch command
     if runtime_mode != '':
         script = [runtime_mode] + arguments.script
     else:
         script = arguments.script
 
-    # Launch Job
+    # launch job
     script_result = subprocess.run(script,
                                    capture_output=True,
                                    check=True)
