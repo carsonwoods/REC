@@ -3,3 +3,7 @@
 *.out
 *.pyc
 rec_out_*
+
+*.egg-info/
+build/
+dist/
