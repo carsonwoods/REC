@@ -7,6 +7,7 @@ Copyright 2020-2022
 import os
 import subprocess
 
+
 class Launcher():
     """
     Representation of the launcher command
