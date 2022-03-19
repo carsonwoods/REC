@@ -9,7 +9,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="runtime-environment-capture",
-    version="0.1.0",
+    version="0.2.0",
     author="Carson Woods",
     description="A wrapper to collect data for ensuring reproducibility.",
     long_description=long_description,

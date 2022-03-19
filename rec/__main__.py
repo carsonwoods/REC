@@ -14,6 +14,7 @@ from datetime import datetime
 from hashlib import sha256
 
 from rec.lib.launcher import Launcher
+from rec.lib.environment import Environment
 
 
 def parse_arguments():
@@ -26,7 +27,7 @@ def parse_arguments():
     # general flags
     parser.add_argument('-v', '--version',
                         action='version',
-                        version='%(prog)s 0.0.1',
+                        version='%(prog)s 0.2.0',
                         help='Print version of REC')
 
     parser.add_argument('--verbose-version',
@@ -89,35 +90,36 @@ def main():
     # Store reproducibility results as json object
     results = {}
 
-    # Record Time Program Starts / Ends
-    start_time = datetime.now()
-    end_time = None
-
     # Stores how job is launched
     runtime_mode = None
 
-    # Record Results
+    # record results
     if arguments.name:
         results['name'] = arguments.name + ".out"
     else:
-        results['name'] = 'rec-' + start_time.strftime("%H-%M-%S") + ".out"
+        results['name'] = 'rec-' + datetime.now().strftime("%H-%M-%S") + ".out"
 
-    # Initialize launcher
+    # initialize environment
+    results['hostname'] = Environment().hostname
+    results['architecture'] = Environment().architecture
+    results['environment'] = Environment().environment
+
+    # initialize launcher
     launcher = Launcher(arguments.launcher)
     results['runtime_mode'] = launcher.info()
     runtime_mode = launcher.mode
 
-    # Store information on executables
+    # store information on executables
     results['executables'] = {}
 
-    # Hashes Input (Script or File)
+    # hashes input (script or file)
     if arguments.launcher == 'cli':
 
-        # Gets hash of CLI input to REC
+        # gets hash of CLI input to REC
         to_encode = "".join(arguments.script)
         results['hash'] = sha256(to_encode.encode('ascii')).hexdigest()
 
-        # Gets version of first executable in command
+        # gets version of first executable in command
         cmd = arguments.script[0]
         if cmd not in results['executables'].keys():
             results['executables'][cmd] = {}
@@ -134,7 +136,7 @@ def main():
                 hash_value.update(data)
         results['hash'] = hash_value.hexdigest()
 
-        # Captures information on each executable in script
+        # captures information on each executable in script
         with open(arguments.script[0], 'r', encoding="utf-8") as file:
             for line in file:
                 if "#!/" in line:
@@ -152,12 +154,17 @@ def main():
     else:
         script = arguments.script
 
+    # record time program starts
+    start_time = datetime.now()
+
     # launch job
     script_result = subprocess.run(script,
                                    capture_output=True,
                                    check=True)
 
+    # record time program ends
     end_time = datetime.now()
+
     results['start_time'] = start_time.strftime("%H:%M:%S")
     results['end_time'] = end_time.strftime("%H:%M:%S")
 
