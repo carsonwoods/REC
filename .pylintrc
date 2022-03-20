@@ -87,7 +87,9 @@ disable=raw-checker-failed,
         deprecated-pragma,
         use-symbolic-message-instead,
         R0912,
-        R0915
+        R0914,
+        R0915,
+
 
 # Enable the message, report, category or checker with the given id(s). You can
 # either give multiple identifier separated by comma (,) or put this option
