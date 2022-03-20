@@ -47,6 +47,7 @@ class Environment():
             if "Created environment" in out:
                 out = out.split('\n')[1].split(' ')[-1]
                 self.environment['SPACK_ENV'] = out
+                self.environment['REC_ENV'] = self.name
                 debug("Environment created successfully")
 
                 debug("Installing " + self.name + " environment")
